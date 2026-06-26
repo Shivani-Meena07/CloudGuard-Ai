@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import hashlib
 import jwt
+import json
+import os
 from datetime import datetime, timedelta
 
 app = FastAPI(title="CloudGuard AI Backend")
@@ -19,9 +21,24 @@ app.add_middleware(
 SECRET_KEY = "super-secret-cloudguard-key"
 ALGORITHM = "HS256"
 
-# In-memory user store and findings database
-FAKE_USER_DB = {}
+# --- NEW: PERSISTENT FILE DATABASE SETTINGS ---
+USER_DB_FILE = "users.json"
 FAKE_FINDINGS_DB = []  # Stores processed security findings (Module 4)
+
+def load_users() -> dict:
+    """Loads registered users from the local JSON file so they survive reloads."""
+    if not os.path.exists(USER_DB_FILE):
+        return {}
+    try:
+        with open(USER_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_users(users: dict):
+    """Saves registered users securely to the local JSON file."""
+    with open(USER_DB_FILE, "w") as f:
+        json.dump(users, f, indent=4)
 
 # --- DATA MODELS (SCHEMAS) ---
 class UserAuth(BaseModel):
@@ -68,20 +85,25 @@ def home():
 # --- MODULE 1: AUTHENTICATION ENDPOINTS ---
 @app.post("/signup")
 def signup(user: UserAuth):
-    if user.username in FAKE_USER_DB:
+    users = load_users()
+    if user.username in users:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Username already exists!"
         )
-    FAKE_USER_DB[user.username] = {
+    
+    # Store user securely
+    users[user.username] = {
         "username": user.username, 
         "password": hash_password(user.password)
     }
+    save_users(users)
     return {"message": f"User {user.username} registered successfully!"}
 
 @app.post("/login")
 def login(user: UserAuth):
-    db_user = FAKE_USER_DB.get(user.username)
+    users = load_users()
+    db_user = users.get(user.username)
     if not db_user or db_user["password"] != hash_password(user.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -93,13 +115,7 @@ def login(user: UserAuth):
 
 
 # --- MODULE 4 & 6: RULE ENGINE WITH AI EXPLANATION GENERATION ---
-
 def evaluate_security_rules(resource: dict) -> list:
-    """
-    Evaluates the resource against security rules (Module 4)
-    and uses the Module 6 AI Explanation Engine to generate deep technical reasons
-    and actual shell execution commands.
-    """
     findings = []
     r_type = resource["type"]
     config = resource.get("configuration", {})
@@ -119,14 +135,9 @@ def evaluate_security_rules(resource: dict) -> list:
             f"  --public-access-block-configuration "
             f"\"BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true\""
         )
-        
         findings.append({
-            "resource_id": r_id,
-            "resource_type": "S3",
-            "rule_name": "public-bucket",
-            "severity": "CRITICAL",
-            "description": ai_reason,
-            "remediation": ai_cli
+            "resource_id": r_id, "resource_type": "S3", "rule_name": "public-bucket",
+            "severity": "CRITICAL", "description": ai_reason, "remediation": ai_cli
         })
 
     # --- RULE 2: OPEN SSH PORT ---
@@ -143,14 +154,9 @@ def evaluate_security_rules(resource: dict) -> list:
             f"  --port 22 \\\n"
             f"  --cidr 0.0.0.0/0"
         )
-        
         findings.append({
-            "resource_id": r_id,
-            "resource_type": "EC2",
-            "rule_name": "open-ssh-port",
-            "severity": "HIGH",
-            "description": ai_reason,
-            "remediation": ai_cli
+            "resource_id": r_id, "resource_type": "EC2", "rule_name": "open-ssh-port",
+            "severity": "HIGH", "description": ai_reason, "remediation": ai_cli
         })
 
     # --- RULE 3: ADMINACCESS ROLES ---
@@ -165,14 +171,9 @@ def evaluate_security_rules(resource: dict) -> list:
             f"  --role-name {r_name} \\\n"
             f"  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess"
         )
-        
         findings.append({
-            "resource_id": r_id,
-            "resource_type": "IAM",
-            "rule_name": "admin-access-role",
-            "severity": "HIGH",
-            "description": ai_reason,
-            "remediation": ai_cli
+            "resource_id": r_id, "resource_type": "IAM", "rule_name": "admin-access-role",
+            "severity": "HIGH", "description": ai_reason, "remediation": ai_cli
         })
 
     # --- RULE 4: MISSING ENCRYPTION ---
@@ -182,7 +183,6 @@ def evaluate_security_rules(resource: dict) -> list:
             f"This fails compliance standards (such as SOC2 and ISO 27001) because data at rest is not cryptographically "
             f"isolated against physical hardware storage extraction vectors."
         )
-        
         if r_type == "S3 Bucket":
             ai_cli = f"aws s3api put-bucket-encryption --bucket {r_name} --server-side-encryption-configuration '{{ \"Rules\": [{{ \"ApplyServerSideEncryptionByDefault\": {{ \"SSEAlgorithm\": \"AES256\" }} }}] }}'"
         elif r_type == "EC2 Instance":
@@ -191,12 +191,8 @@ def evaluate_security_rules(resource: dict) -> list:
             ai_cli = f"aws kms create-key --description 'Default Compliance Key for {r_name}'"
 
         findings.append({
-            "resource_id": r_id,
-            "resource_type": r_type.split()[0],
-            "rule_name": "missing-encryption",
-            "severity": "MEDIUM",
-            "description": ai_reason,
-            "remediation": ai_cli
+            "resource_id": r_id, "resource_type": r_type.split()[0], "rule_name": "missing-encryption",
+            "severity": "MEDIUM", "description": ai_reason, "remediation": ai_cli
         })
 
     return findings
@@ -204,13 +200,9 @@ def evaluate_security_rules(resource: dict) -> list:
 
 @app.post("/api/v1/compliance/scan")
 def run_compliance_scan():
-    """
-    Module 4 Target: Discovers issues, stores them in the findings database,
-    and reports execution state back.
-    """
     global FAKE_FINDINGS_DB
     resources = get_mock_data()
-    FAKE_FINDINGS_DB = [] # Reset data stream for fresh evaluation simulation
+    FAKE_FINDINGS_DB = []
     
     for resource in resources:
         violations = evaluate_security_rules(resource)
@@ -224,7 +216,6 @@ def run_compliance_scan():
 
 @app.get("/api/v1/findings")
 def get_findings():
-    """Returns the logged security findings for Module 5 dashboard rendering."""
     return FAKE_FINDINGS_DB
 
 

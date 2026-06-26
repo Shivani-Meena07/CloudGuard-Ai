@@ -202,3 +202,21 @@ function performFilteringActions() {
 
 document.getElementById('search-bar').addEventListener('input', performFilteringActions);
 document.getElementById('severity-filter').addEventListener('change', performFilteringActions);
+
+// --- PASSWORD VISIBILITY TOGGLE FEATURE (STANDARD ICON FIX) ---
+const passwordInput = document.getElementById('password');
+const togglePasswordBtn = document.getElementById('toggle-password');
+const eyeIcon = document.getElementById('eye-icon');
+
+togglePasswordBtn.addEventListener('click', () => {
+    // Check if password type is password or text
+    const isPassword = passwordInput.getAttribute('type') === 'password';
+    passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+    
+    // Dynamically change icon class to regular slashed/unslashed view
+    if (isPassword) {
+        eyeIcon.className = "fas fa-eye-slash";
+    } else {
+        eyeIcon.className = "fas fa-eye";
+    }
+});
