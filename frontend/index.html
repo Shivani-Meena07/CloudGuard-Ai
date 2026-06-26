@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudGuard AI Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="dashboard-container">
+
+        <div id="auth-screen">
+            <header class="main-header">
+                <h1>🛡️ CloudGuard AI</h1>
+                <p>Secure Portal Login</p>
+            </header>
+
+            <div class="auth-box">
+                <div class="auth-tabs">
+                    <button id="tab-login" class="tab-btn active">Login</button>
+                    <button id="tab-signup" class="tab-btn">Sign Up</button>
+                </div>
+
+                <form id="auth-form">
+                    <div class="input-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" required placeholder="Enter username">
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required placeholder="Enter password">
+                    </div>
+                    <button type="submit" id="submit-btn" class="btn-primary">Sign In</button>
+                </form>
+                <div id="auth-message" class="status-idle"></div>
+            </div>
+        </div>
+
+        <div id="console-screen" class="hidden">
+            <header class="main-header">
+                <h1>🛡️ CloudGuard AI</h1>
+                <p>Real-time Cloud Security Auditor</p>
+                <button id="logout-btn" class="btn-secondary">Log Out</button>
+            </header>
+
+            <main class="dashboard-content">
+                <section class="control-panel">
+                    <button id="scan-btn" class="btn-primary">🚀 Run AI Cloud Scan</button>
+                    <div id="status-text" class="status-idle">System authenticated and ready</div>
+                </section>
+
+                <section id="results-summary" class="hidden">
+                    <div class="metric-card">
+                        <h3>Vulnerabilities Found</h3>
+                        <p id="vuln-count">0</p>
+                    </div>
+                </section>
+
+                <section id="report-section" class="hidden">
+                    <h2>AI Remediation Analysis Report</h2>
+                    <div id="reports-container"></div>
+                </section>
+            </main>
+        </div>
+
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
