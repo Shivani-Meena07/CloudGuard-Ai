@@ -51,16 +51,54 @@
                     <div id="status-text" class="status-idle">System authenticated and ready</div>
                 </section>
 
-                <section id="results-summary" class="hidden">
-                    <div class="metric-card">
-                        <h3>Vulnerabilities Found</h3>
-                        <p id="vuln-count">0</p>
+                <section id="results-summary" class="hidden" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                    <div class="metric-card" style="border-left: 4px solid #ef4444;">
+                        <h3>Critical Issues</h3>
+                        <p id="vuln-count-critical" style="font-size: 2rem; font-weight: bold; margin: 0;">0</p>
                     </div>
+                    <div class="metric-card" style="border-left: 4px solid #f97316;">
+                        <h3>High Issues</h3>
+                        <p id="vuln-count-high" style="font-size: 2rem; font-weight: bold; margin: 0;">0</p>
+                    </div>
+                    <div class="metric-card" style="border-left: 4px solid #eab308;">
+                        <h3>Medium Issues</h3>
+                        <p id="vuln-count-medium" style="font-size: 2rem; font-weight: bold; margin: 0;">0</p>
+                    </div>
+                    <div class="metric-card" style="border-left: 4px solid #a855f7;">
+                        <h3>Dynamic Risk Score</h3>
+                        <p id="risk-score-pct" style="font-size: 2rem; font-weight: bold; margin: 0;">0%</p>
+                    </div>
+                </section>
+
+                <section id="filter-bar-section" class="hidden" style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                    <input type="text" id="search-bar" placeholder="Search by resource or rule description..." style="flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: white;">
+                    <select id="severity-filter" style="padding: 0.5rem; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: white;">
+                        <option value="ALL">All Severities</option>
+                        <option value="CRITICAL">Critical Only</option>
+                        <option value="HIGH">High Only</option>
+                        <option value="MEDIUM">Medium Only</option>
+                    </select>
                 </section>
 
                 <section id="report-section" class="hidden">
                     <h2>AI Remediation Analysis Report</h2>
-                    <div id="reports-container"></div>
+                    <div id="reports-container" style="margin-bottom: 2rem;"></div>
+                    
+                    <div class="table-container" style="background: #1e293b; border-radius: 8px; padding: 1rem; overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; color: white;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #334155; color: #94a3b8;">
+                                    <th style="padding: 0.75rem;">Resource ID</th>
+                                    <th style="padding: 0.75rem;">Type</th>
+                                    <th style="padding: 0.75rem;">Finding</th>
+                                    <th style="padding: 0.75rem;">Severity</th>
+                                    <th style="padding: 0.75rem;">Remediation Advice</th>
+                                </tr>
+                            </thead>
+                            <tbody id="findings-table-body">
+                                </tbody>
+                        </table>
+                    </div>
                 </section>
             </main>
         </div>

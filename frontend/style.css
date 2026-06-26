@@ -7,10 +7,8 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #0f172a;
-    /* Deep dark blue background */
-    color: #f8fafc;
-    /* Crisp white text */
+    background-color: #0f172a; /* Deep dark blue background */
+    color: #f8fafc; /* Crisp white text */
     padding: 40px 20px;
     display: flex;
     justify-content: center;
@@ -18,7 +16,7 @@ body {
 }
 
 .dashboard-container {
-    max-width: 800px;
+    max-width: 1100px; /* Expanded from 800px to allow clean layout side-by-side spacing */
     width: 100%;
 }
 
@@ -32,8 +30,7 @@ body {
 
 .main-header h1 {
     font-size: 2.5rem;
-    color: #38bdf8;
-    /* Sky Blue */
+    color: #38bdf8; /* Sky Blue */
 }
 
 .main-header p {
@@ -150,8 +147,7 @@ body {
 }
 
 #scan-btn {
-    width: auto;
-    /* Keep the scan button tight on dashboard */
+    width: auto; /* Keep the scan button tight on dashboard */
 }
 
 .status-idle {
@@ -165,18 +161,17 @@ body {
 
 .metric-card {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border-left: 5px solid #ef4444;
     padding: 20px;
     border-radius: 8px;
     text-align: center;
-    margin-bottom: 30px;
+    border: 1px solid #334155;
 }
 
-.metric-card p {
-    font-size: 3rem;
-    font-weight: bold;
-    color: #ef4444;
-    margin-top: 5px;
+.metric-card h3 {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .ai-card {
@@ -187,6 +182,27 @@ body {
     margin-top: 15px;
 }
 
+/* --- MODULE 5 ADDITIONS: TABLES & FILTER UI STYLING --- */
+.table-container th {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-color: #0f172a;
+}
+
+.table-container td {
+    font-size: 0.95rem;
+}
+
+.table-container tr:hover {
+    background-color: #243146; /* Subtle row hover glow */
+}
+
+#filter-bar-section input:focus, #filter-bar-section select:focus {
+    outline: 1px solid #38bdf8;
+}
+
+/* --- SEVERITY & RESOURCE BADGES --- */
 .severity-tag {
     display: inline-block;
     padding: 4px 8px;
@@ -196,14 +212,19 @@ body {
     margin-bottom: 10px;
 }
 
-.severity-CRITICAL {
+.severity-critical, .severity-CRITICAL {
     background-color: #7f1d1d;
     color: #fca5a5;
 }
 
-.severity-HIGH {
+.severity-high, .severity-HIGH {
     background-color: #7c2d12;
     color: #ffedd5;
+}
+
+.severity-medium, .severity-MEDIUM {
+    background-color: #713f12; /* New: Clean Olive/Gold theme background for medium alerts */
+    color: #fef08a;
 }
 
 /* Utilities */

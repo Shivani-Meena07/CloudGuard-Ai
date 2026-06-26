@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 app = FastAPI(title="CloudGuard AI Backend")
 
 # --- CROSS-ORIGIN RESOURCE SHARING (CORS) ---
-# Allows your local frontend files to talk to the FastAPI backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,8 +19,9 @@ app.add_middleware(
 SECRET_KEY = "super-secret-cloudguard-key"
 ALGORITHM = "HS256"
 
-# In-memory user store for demo purposes
+# In-memory user store and findings database
 FAKE_USER_DB = {}
+FAKE_FINDINGS_DB = []  # <--- NEW: Stores processed security findings (Module 4)
 
 # --- DATA MODELS (SCHEMAS) ---
 class UserAuth(BaseModel):
@@ -37,20 +37,26 @@ def create_access_token(username: str):
     to_encode = {"sub": username, "exp": expire}
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# --- MOCK INFRASTRUCTURE DATA ---
+# --- MODULE 2 & 3: MOCK INFRASTRUCTURE DATA ---
 def get_mock_data():
     return [
         {
             "id": "i-0abcd1234efgh5678",
             "type": "EC2 Instance",
             "name": "Production-Web-Server",
-            "configuration": {"PortsOpen": "0.0.0.0/0"}
+            "configuration": {"PortsOpen": "0.0.0.0/0", "Encrypted": False}
         },
         {
             "id": "arn:aws:s3:::company-financial-records-2026",
             "type": "S3 Bucket",
             "name": "company-financial-records-2026",
-            "configuration": {"PublicAccess": True}
+            "configuration": {"PublicAccess": True, "SSEAlgorithm": None}
+        },
+        {
+            "id": "arn:aws:iam::123456789012:role/AdminExecutionRole",
+            "type": "IAM Role",
+            "name": "AdminExecutionRole",
+            "configuration": {"AttachedPolicies": ["AdministratorAccess"], "MissingEncryption": True}
         }
     ]
 
@@ -85,43 +91,87 @@ def login(user: UserAuth):
     token = create_access_token(username=user.username)
     return {"access_token": token, "token_type": "bearer"}
 
-# --- MODULE 2 & 3: AI ANALYSIS & RULE ENGINE ENDPOINT ---
-@app.post("/ai-analyze")
-def ai_analyze():
+
+# --- MODULE 4: RULE ENGINE EXTRACTION & API ---
+
+def evaluate_security_rules(resource: dict) -> list:
+    """Evaluates the resource against the Module 4 security rules."""
+    findings = []
+    r_type = resource["type"]
+    config = resource.get("configuration", {})
+
+    # Rule 1: Public S3 Bucket
+    if r_type == "S3 Bucket" and config.get("PublicAccess") == True:
+        findings.append({
+            "resource_id": resource["id"],
+            "resource_type": "S3",
+            "rule_name": "public-bucket",
+            "severity": "CRITICAL",
+            "description": f"S3 Bucket '{resource['name']}' allows public read access.",
+            "remediation": "Enable 'Block Public Access' on this bucket immediately."
+        })
+
+    # Rule 2: Open SSH Port
+    if r_type == "EC2 Instance" and config.get("PortsOpen") == "0.0.0.0/0":
+        findings.append({
+            "resource_id": resource["id"],
+            "resource_type": "EC2",
+            "rule_name": "open-ssh-port",
+            "severity": "HIGH",
+            "description": f"EC2 Instance '{resource['name']}' has SSH port 22 open to the world.",
+            "remediation": "Modify the AWS Security Group to restrict access to trusted IPs."
+        })
+
+    # Rule 3: AdminAccess Roles
+    if r_type == "IAM Role" and "AdministratorAccess" in config.get("AttachedPolicies", []):
+        findings.append({
+            "resource_id": resource["id"],
+            "resource_type": "IAM",
+            "rule_name": "admin-access-role",
+            "severity": "HIGH",
+            "description": f"IAM Role '{resource['name']}' grants full AdministratorAccess.",
+            "remediation": "Apply least-privilege scoping rules and remove broad administrator policies."
+        })
+
+    # Rule 4: Missing Encryption (Checks S3, EC2, or IAM contexts)
+    if config.get("Encrypted") == False or config.get("SSEAlgorithm") is None or config.get("MissingEncryption") == True:
+        findings.append({
+            "resource_id": resource["id"],
+            "resource_type": r_type.split()[0],
+            "rule_name": "missing-encryption",
+            "severity": "MEDIUM",
+            "description": f"Resource '{resource['name']}' is missing server-side encryption configurations.",
+            "remediation": "Enable default KMS or AES-256 encryption rules for this asset."
+        })
+
+    return findings
+
+
+@app.post("/api/v1/compliance/scan")
+def run_compliance_scan():
     """
-    Simulates sending the cloud configuration metadata to an AI engine
-    and receiving detailed security remediation steps.
+    Module 4 Target: Discovers issues, stores them in the findings database,
+    and reports execution state back.
     """
+    global FAKE_FINDINGS_DB
     resources = get_mock_data()
-    ai_insights = []
+    FAKE_FINDINGS_DB = [] # Reset data stream for fresh evaluation simulation
     
     for resource in resources:
-        if resource["type"] == "EC2 Instance" and resource["configuration"]["PortsOpen"] == "0.0.0.0/0":
-            ai_insights.append({
-                "resource_id": resource["id"],
-                "severity": "CRITICAL",
-                "finding": "SSH Port 22 open to the world.",
-                "ai_remediation_advice": (
-                    "AI Analysis: This setup exposes your instance to brute-force attacks. "
-                    "Modify the AWS Security Group to restrict access to known corporate IP ranges only."
-                )
-            })
-        elif resource["type"] == "S3 Bucket" and resource["configuration"]["PublicAccess"] == True:
-            ai_insights.append({
-                "resource_id": resource["id"],
-                "severity": "HIGH",
-                "finding": "S3 Bucket allows public read access.",
-                "ai_remediation_advice": (
-                    "AI Analysis: Confidential data might leak. Enable 'Block Public Access' "
-                    "on this bucket immediately and use IAM Policies for access control."
-                )
-            })
-            
+        violations = evaluate_security_rules(resource)
+        FAKE_FINDINGS_DB.extend(violations)
+        
     return {
-        "status": "completed",
-        "total_vulnerabilities": len(ai_insights),
-        "ai_analysis_report": ai_insights
+        "status": "success",
+        "total_findings_logged": len(FAKE_FINDINGS_DB)
     }
+
+
+@app.get("/api/v1/findings")
+def get_findings():
+    """Returns the logged security findings for Module 5 dashboard rendering."""
+    return FAKE_FINDINGS_DB
+
 
 # --- SERVER INITIATION ---
 if __name__ == "__main__":
