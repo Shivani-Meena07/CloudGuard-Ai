@@ -9,8 +9,8 @@ const submitBtn = document.getElementById('submit-btn');
 const tabLogin = document.getElementById('tab-login');
 const tabSignup = document.getElementById('tab-signup');
 
-let currentMode = 'login'; // Can switch to 'signup'
-let findingsCache = [];    // Local cache memory storing live findings data for search processing
+let currentMode = 'login'; 
+let findingsCache = [];    
 
 // --- SWITCH BETWEEN LOGIN & SIGNUP VIEWS ---
 tabLogin.addEventListener('click', () => {
@@ -91,7 +91,7 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     authMessage.style.color = "#94a3b8";
 });
 
-// --- MODULE 5: RUN COMPLIANCE RULE ENGINE SCAN & RENDER TARGETS ---
+// --- RUN COMPLIANCE RULE ENGINE SCAN & RENDER TARGETS ---
 document.getElementById('scan-btn').addEventListener('click', async () => {
     const statusText = document.getElementById('status-text');
     const summarySection = document.getElementById('results-summary');
@@ -102,15 +102,12 @@ document.getElementById('scan-btn').addEventListener('click', async () => {
     statusText.className = "status-scanning";
     
     try {
-        // 1. Fire our Module 4 Rule Engine Scan execution logic route
         const scanResponse = await fetch('http://127.0.0.1:8000/api/v1/compliance/scan', { method: 'POST' });
         if (!scanResponse.ok) throw new Error("Compliance scan loop failure.");
 
-        // 2. Load the verified findings records down stream
         const findingsResponse = await fetch('http://127.0.0.1:8000/api/v1/findings');
         findingsCache = await findingsResponse.json();
 
-        // 3. Render cards and tabular formats layout
         processAndRenderDashboard(findingsCache);
 
         statusText.innerText = "✅ Scan Complete. AI Analytics report metrics generated!";
@@ -125,12 +122,11 @@ document.getElementById('scan-btn').addEventListener('click', async () => {
     }
 });
 
-// --- MODULE 5 core logic: PROCESS COUNTS, METRICS & RENDER VIEWS ---
+// --- RENDER COUNTS, CARDS & TABLES ---
 function processAndRenderDashboard(findings) {
     const container = document.getElementById('reports-container');
     const tableBody = document.getElementById('findings-table-body');
     
-    // Reset structural markup boxes
     container.innerHTML = "";
     tableBody.innerHTML = "";
 
@@ -139,41 +135,40 @@ function processAndRenderDashboard(findings) {
     let mediumCount = 0;
 
     findings.forEach(item => {
-        // Accumulate specific security severity metrics
         if (item.severity === "CRITICAL") criticalCount++;
         if (item.severity === "HIGH") highCount++;
         if (item.severity === "MEDIUM") mediumCount++;
 
-        // Render Cards (Your teammate's preferred visualization format)
+        // Render Cards
         const card = document.createElement('div');
         card.className = 'ai-card';
         card.style.cssText = "background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #3b82f6;";
         
-        // Dynamic border color depending on urgency
         if(item.severity === "CRITICAL") card.style.borderLeftColor = "#ef4444";
         if(item.severity === "HIGH") card.style.borderLeftColor = "#f97316";
         if(item.severity === "MEDIUM") card.style.borderLeftColor = "#eab308";
 
         card.innerHTML = `
             <span class="severity-tag severity-${item.severity.toLowerCase()}" style="padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">${item.severity}</span>
-            <h3 style="margin: 8px 0;">${item.rule_name}</h3>
+            <h3 style="margin: 8px 0; color: #38bdf8;">${item.rule_name}</h3>
             <p style="color: #94a3b8; font-size: 0.9rem; margin: 4px 0;">Resource ID: <code>${item.resource_id}</code></p>
             <p style="margin: 6px 0; font-size: 0.95rem;">${item.description}</p>
-            <p style="background-color: #0f172a; padding: 12px; border-radius: 6px; border-left: 3px solid #38bdf8; font-size: 0.9rem; margin-top: 8px;">
-                <strong>💡 Remediation Advice:</strong> ${item.remediation}
-            </p>
+            <pre style="background: #0f172a; color: #4ade80; padding: 12px; border-radius: 6px; border-left: 3px solid #38bdf8; font-family: monospace; font-size: 0.9rem; overflow-x: auto; white-space: pre-wrap; margin-top: 8px;"><code>${item.remediation}</code></pre>
         `;
         container.appendChild(card);
 
-        // Render dynamic table rows for grid analytics view
+        // Render dynamic table rows
         const row = document.createElement('tr');
         row.style.borderBottom = "1px solid #334155";
         row.innerHTML = `
             <td style="padding: 0.75rem;"><code>${item.resource_id}</code></td>
             <td style="padding: 0.75rem;"><span style="background: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${item.resource_type}</span></td>
-            <td style="padding: 0.75rem;">${item.rule_name}</td>
+            <td style="padding: 0.75rem;"><span style="color: #38bdf8; font-weight: 500;">${item.rule_name}</span></td>
             <td style="padding: 0.75rem;"><span style="font-weight: bold; color: ${item.severity === 'CRITICAL' ? '#ef4444' : item.severity === 'HIGH' ? '#f97316' : '#eab308'}">${item.severity}</span></td>
-            <td style="padding: 0.75rem; color: #cbd5e1; font-size: 0.9rem;">${item.remediation}</td>
+            <td style="padding: 0.75rem;">
+                <p style="margin-bottom: 6px; color: #e2e8f0; font-size: 0.9rem;">${item.description}</p>
+                <pre style="background: #0f172a; color: #4ade80; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; border: 1px solid #1e293b; overflow-x: auto; white-space: pre-wrap; margin: 0;"><code>${item.remediation}</code></pre>
+            </td>
         `;
         tableBody.appendChild(row);
     });
@@ -183,12 +178,12 @@ function processAndRenderDashboard(findings) {
     document.getElementById('vuln-count-high').innerText = highCount;
     document.getElementById('vuln-count-medium').innerText = mediumCount;
 
-    // Build the dynamic weighted risk score indicator metrics logic 
+    // Dynamic Risk Score calculation
     const calculatedRiskValue = (criticalCount * 12) + (highCount * 6) + (mediumCount * 3);
     document.getElementById('risk-score-pct').innerText = `${Math.min(calculatedRiskValue, 100)}%`;
 }
 
-// --- MODULE 5 SEARCH AND DROPDOWN MULTI-FILTER LISTENER HANDLERS ---
+// --- SEARCH AND FILTER HANDLERS ---
 function performFilteringActions() {
     const searchString = document.getElementById('search-bar').value.toLowerCase();
     const selectedSeverity = document.getElementById('severity-filter').value;
@@ -205,6 +200,5 @@ function performFilteringActions() {
     processAndRenderDashboard(filteredResultSet);
 }
 
-// Attach filter change listener events directly
 document.getElementById('search-bar').addEventListener('input', performFilteringActions);
 document.getElementById('severity-filter').addEventListener('change', performFilteringActions);

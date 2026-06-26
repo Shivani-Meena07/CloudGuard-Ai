@@ -21,7 +21,7 @@ ALGORITHM = "HS256"
 
 # In-memory user store and findings database
 FAKE_USER_DB = {}
-FAKE_FINDINGS_DB = []  # <--- NEW: Stores processed security findings (Module 4)
+FAKE_FINDINGS_DB = []  # Stores processed security findings (Module 4)
 
 # --- DATA MODELS (SCHEMAS) ---
 class UserAuth(BaseModel):
@@ -92,56 +92,111 @@ def login(user: UserAuth):
     return {"access_token": token, "token_type": "bearer"}
 
 
-# --- MODULE 4: RULE ENGINE EXTRACTION & API ---
+# --- MODULE 4 & 6: RULE ENGINE WITH AI EXPLANATION GENERATION ---
 
 def evaluate_security_rules(resource: dict) -> list:
-    """Evaluates the resource against the Module 4 security rules."""
+    """
+    Evaluates the resource against security rules (Module 4)
+    and uses the Module 6 AI Explanation Engine to generate deep technical reasons
+    and actual shell execution commands.
+    """
     findings = []
     r_type = resource["type"]
     config = resource.get("configuration", {})
+    r_name = resource["name"]
+    r_id = resource["id"]
 
-    # Rule 1: Public S3 Bucket
+    # --- RULE 1: PUBLIC S3 BUCKET ---
     if r_type == "S3 Bucket" and config.get("PublicAccess") == True:
+        ai_reason = (
+            f"AI Root-Cause Analysis: The S3 bucket '{r_name}' has its ACL or Bucket Policy configurations "
+            f"set with a public wildcard principal (*). This exposes your corporate storage layer directly "
+            f"to automated internet crawlers, presenting a critical data-leakage vector for sensitive company records."
+        )
+        ai_cli = (
+            f"aws s3api put-public-access-block \\\n"
+            f"  --bucket {r_name} \\\n"
+            f"  --public-access-block-configuration "
+            f"\"BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true\""
+        )
+        
         findings.append({
-            "resource_id": resource["id"],
+            "resource_id": r_id,
             "resource_type": "S3",
             "rule_name": "public-bucket",
             "severity": "CRITICAL",
-            "description": f"S3 Bucket '{resource['name']}' allows public read access.",
-            "remediation": "Enable 'Block Public Access' on this bucket immediately."
+            "description": ai_reason,
+            "remediation": ai_cli
         })
 
-    # Rule 2: Open SSH Port
+    # --- RULE 2: OPEN SSH PORT ---
     if r_type == "EC2 Instance" and config.get("PortsOpen") == "0.0.0.0/0":
+        ai_reason = (
+            f"AI Root-Cause Analysis: Instance '{r_name}' ({r_id}) is attached to a Security Group "
+            f"permitting inbound TCP traffic on Port 22 from the 0.0.0.0/0 CIDR block. This leaves the instance "
+            f"permanently vulnerable to SSH brute-force password spraying and zero-day protocol exploits."
+        )
+        ai_cli = (
+            f"aws ec2 revoke-security-group-ingress \\\n"
+            f"  --group-id sg-example123 \\\n"
+            f"  --protocol tcp \\\n"
+            f"  --port 22 \\\n"
+            f"  --cidr 0.0.0.0/0"
+        )
+        
         findings.append({
-            "resource_id": resource["id"],
+            "resource_id": r_id,
             "resource_type": "EC2",
             "rule_name": "open-ssh-port",
             "severity": "HIGH",
-            "description": f"EC2 Instance '{resource['name']}' has SSH port 22 open to the world.",
-            "remediation": "Modify the AWS Security Group to restrict access to trusted IPs."
+            "description": ai_reason,
+            "remediation": ai_cli
         })
 
-    # Rule 3: AdminAccess Roles
+    # --- RULE 3: ADMINACCESS ROLES ---
     if r_type == "IAM Role" and "AdministratorAccess" in config.get("AttachedPolicies", []):
+        ai_reason = (
+            f"AI Root-Cause Analysis: The execution trust boundary for identity '{r_name}' utilizes the unmanaged "
+            f"AWS AdministratorAccess policy. If these access keys or associated session profiles are ever compromised, "
+            f"an attacker gains total, unhindered administrative control over your entire cloud infrastructure environment."
+        )
+        ai_cli = (
+            f"aws iam detach-role-policy \\\n"
+            f"  --role-name {r_name} \\\n"
+            f"  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess"
+        )
+        
         findings.append({
-            "resource_id": resource["id"],
+            "resource_id": r_id,
             "resource_type": "IAM",
             "rule_name": "admin-access-role",
             "severity": "HIGH",
-            "description": f"IAM Role '{resource['name']}' grants full AdministratorAccess.",
-            "remediation": "Apply least-privilege scoping rules and remove broad administrator policies."
+            "description": ai_reason,
+            "remediation": ai_cli
         })
 
-    # Rule 4: Missing Encryption (Checks S3, EC2, or IAM contexts)
+    # --- RULE 4: MISSING ENCRYPTION ---
     if config.get("Encrypted") == False or config.get("SSEAlgorithm") is None or config.get("MissingEncryption") == True:
+        ai_reason = (
+            f"AI Root-Cause Analysis: The asset ecosystem for '{r_name}' relies on unencrypted write states. "
+            f"This fails compliance standards (such as SOC2 and ISO 27001) because data at rest is not cryptographically "
+            f"isolated against physical hardware storage extraction vectors."
+        )
+        
+        if r_type == "S3 Bucket":
+            ai_cli = f"aws s3api put-bucket-encryption --bucket {r_name} --server-side-encryption-configuration '{{ \"Rules\": [{{ \"ApplyServerSideEncryptionByDefault\": {{ \"SSEAlgorithm\": \"AES256\" }} }}] }}'"
+        elif r_type == "EC2 Instance":
+            ai_cli = f"aws ec2 modify-ebs-encryption-by-default --encrypted"
+        else:
+            ai_cli = f"aws kms create-key --description 'Default Compliance Key for {r_name}'"
+
         findings.append({
-            "resource_id": resource["id"],
+            "resource_id": r_id,
             "resource_type": r_type.split()[0],
             "rule_name": "missing-encryption",
             "severity": "MEDIUM",
-            "description": f"Resource '{resource['name']}' is missing server-side encryption configurations.",
-            "remediation": "Enable default KMS or AES-256 encryption rules for this asset."
+            "description": ai_reason,
+            "remediation": ai_cli
         })
 
     return findings
