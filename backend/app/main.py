@@ -6,8 +6,27 @@ import jwt
 import json
 import os
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="CloudGuard AI Backend")
+# Import your scheduler functions securely
+from app.scheduler import start_scheduler, shutdown_scheduler
+
+# --- LIFESPAN CONTEXT MANAGER ---
+# This must be declared BEFORE creating the FastAPI app instance
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize background monitoring scheduler
+    start_scheduler()
+    yield
+    # Shutdown: Cleanly stop background routines
+    shutdown_scheduler()
+
+# --- INITIALIZE FASTAPI ---
+app = FastAPI(
+    title="CloudGuard AI Backend",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # --- CROSS-ORIGIN RESOURCE SHARING (CORS) ---
 app.add_middleware(
@@ -77,10 +96,14 @@ def get_mock_data():
         }
     ]
 
-# --- BACKEND BASE ROUTE ---
+# --- BASE & HEALTH ROUTES ---
 @app.get("/")
 def home():
     return {"message": "CloudGuard AI Backend is Running!"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "continuous_monitoring": "active"}
 
 # --- MODULE 1: AUTHENTICATION ENDPOINTS ---
 @app.post("/signup")
@@ -112,7 +135,6 @@ def login(user: UserAuth):
     
     token = create_access_token(username=user.username)
     return {"access_token": token, "token_type": "bearer"}
-
 
 # --- MODULE 4 & 6: RULE ENGINE WITH AI EXPLANATION GENERATION ---
 def evaluate_security_rules(resource: dict) -> list:
@@ -197,7 +219,6 @@ def evaluate_security_rules(resource: dict) -> list:
 
     return findings
 
-
 @app.post("/api/v1/compliance/scan")
 def run_compliance_scan():
     global FAKE_FINDINGS_DB
@@ -213,13 +234,11 @@ def run_compliance_scan():
         "total_findings_logged": len(FAKE_FINDINGS_DB)
     }
 
-
 @app.get("/api/v1/findings")
 def get_findings():
     return FAKE_FINDINGS_DB
 
-
 # --- SERVER INITIATION ---
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8080, reload=True)
